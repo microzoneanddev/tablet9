@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Full Screen Image Slider (Contain Mode + Click Areas)</title>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #fff;
+  }
+
+  .slider-container {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    background-color: #fff;
+    overflow: hidden;
+  }
+
+  .slide {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: contain;
+    opacity: 0;
+    transition: opacity 0.6s ease-in-out;
+  }
+
+  .slide.active {
+    opacity: 1;
+    z-index: 2;
+  }
+
+  .arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 60px;
+    height: 60px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    cursor: pointer;
+    z-index: 10;
+    transition: opacity 0.4s ease-in-out;
+  }
+
+  .arrow.left {
+    left: 20px;
+    background-image: url('Back.svg');
+  }
+
+  .arrow.right {
+    right: 20px;
+    background-image: url('Next.svg');
+  }
+
+  .back-to-main {
+    position: absolute;
+    bottom: 40px;
+    right: 40px;
+    width: 200px;
+    height: 60px;
+    background-image: url('Back to Main Button.svg');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    cursor: pointer;
+    z-index: 10;
+    transition: opacity 0.4s ease-in-out;
+  }
+
+  .hidden {
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
+  /* --- CLICKABLE AREAS ON SECOND SLIDE --- */
+  .menu-areas {
+    position: absolute;
+    inset: 0;
+    z-index: 15;
+  }
+
+  .hotspot {
+    position: absolute;
+    cursor: pointer;
+    /* background-color: rgba(255, 0, 0, 0.2); for testing */
+  }
+</style>
+</head>
+<body>
+
+<div class="slider-container" id="slider">
+  <!-- SLIDES -->
+  <div class="slide active" style="background-image: url('Frame 1.png');"></div>
+
+  <div class="slide" style="background-image: url('Frame 2.png');">
+    <!-- MENU HOTSPOTS ON SECOND SLIDE -->
+    <div class="menu-areas">
+      <div class="hotspot" data-target="2" style="top: 30%; left: 25%; width: 20%; height: 10%;"></div>
+      <div class="hotspot" data-target="6" style="top: 30%; left: 51%; width: 25%; height: 12%;"></div>
+      <div class="hotspot" data-target="3" style="top: 46%; left: 25%; width: 24%; height: 12%;"></div>
+      <div class="hotspot" data-target="5" style="top: 50%; left: 51%; width: 25%; height: 12%;"></div>
+      <div class="hotspot" data-target="4" style="top: 66%; left: 27%; width: 20%; height: 12%;"></div>
+      <div class="hotspot" data-target="7" style="top: 70%; left: 51%; width: 20%; height: 12%;"></div>
+    </div>
+  </div>
+
+  <div class="slide" style="background-image: url('Frame 3.png');"></div>
+  <div class="slide" style="background-image: url('Frame 4.png');"></div>
+  <div class="slide" style="background-image: url('Frame 5.png');"></div>
+  <div class="slide" style="background-image: url('Frame 6.png');"></div>
+  <div class="slide" style="background-image: url('Frame 7.png');"></div>
+  <div class="slide" style="background-image: url('Frame 8.png');"></div>
+  <div class="slide" style="background-image: url('Frame 9.png');"></div>
+
+  <!-- CONTROLS (hidden by default) -->
+  <div class="arrow left hidden"></div>
+  <div class="arrow right hidden"></div>
+  <div class="back-to-main hidden"></div>
+</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const nextBtn = document.querySelector('.arrow.right');
+  const prevBtn = document.querySelector('.arrow.left');
+  const backToMain = document.querySelector('.back-to-main');
+  const hotspots = document.querySelectorAll('.hotspot');
+  const slider = document.getElementById('slider');
+  let current = 0;
+  let resetTimer = null;
+  let startX = 0;
+
+  function showSlide(index) {
+    clearTimeout(resetTimer);
+    slides.forEach(slide => slide.classList.remove('active'));
+    slides[index].classList.add('active');
+
+    // Hide/show controls
+    if (index === 0) {
+      // First screen: hide everything
+      nextBtn.classList.add('hidden');
+      prevBtn.classList.add('hidden');
+      backToMain.classList.add('hidden');
+    } 
+    else if (index === 1) {
+      nextBtn.classList.remove('hidden');
+      prevBtn.classList.remove('hidden');
+      backToMain.classList.add('hidden');
+    } 
+    else if (index === slides.length - 1) {
+      // Last screen: hide prev + back-to-main, hide next, auto-reset
+      nextBtn.classList.add('hidden');
+      prevBtn.classList.add('hidden');
+      backToMain.classList.remove('hidden');
+      resetTimer = setTimeout(() => {
+        current = 0;
+        showSlide(current);
+      }, 10000);
+    } 
+    else {
+      backToMain.classList.remove('hidden');
+      nextBtn.classList.remove('hidden');
+      prevBtn.classList.remove('hidden');
+    }
+  }
+
+  nextBtn.addEventListener('click', () => {
+    current = (current + 1) % slides.length;
+    showSlide(current);
+  });
+
+  prevBtn.addEventListener('click', () => {
+    current = (current - 1 + slides.length) % slides.length;
+    showSlide(current);
+  });
+
+  backToMain.addEventListener('click', () => {
+    current = 1; // Go to second screen
+    showSlide(current);
+  });
+
+  // Hotspot click → go to related slide
+  hotspots.forEach(spot => {
+    spot.addEventListener('click', () => {
+      const target = parseInt(spot.getAttribute('data-target'));
+      if (!isNaN(target) && target < slides.length) {
+        current = target;
+        showSlide(current);
+      }
+    });
+  });
+
+  // --- First screen click to go next ---
+  slider.addEventListener('click', () => {
+    if (current === 0) {
+      current = 1;
+      showSlide(current);
+    }
+  });
+
+  // --- Swipe gesture for first screen ---
+  slider.addEventListener('touchstart', (e) => {
+    if (current === 0) {
+      startX = e.touches[0].clientX;
+    }
+  });
+
+  slider.addEventListener('touchend', (e) => {
+    if (current === 0) {
+      const endX = e.changedTouches[0].clientX;
+      if (startX - endX > 50) { // swipe left
+        current = 1;
+        showSlide(current);
+      }
+    }
+  });
+</script>
+
+</body>
+</html>
