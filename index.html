@@ -98,6 +98,123 @@
     cursor: pointer;
     /* background-color: rgba(255, 0, 0, 0.2); for testing */
   }
+
+
+  /* --- FULLSCREEN & ZOOM CONTROLS START --- */
+  .slider-container.zoomed {
+    overflow: auto;
+    cursor: grab;
+  }
+
+  .slider-container.zoomed:active {
+    cursor: grabbing;
+  }
+
+  .slider-container.zoomed .slide.active {
+    min-width: 100%;
+    min-height: 100%;
+  }
+
+  .fullscreen-btn {
+    position: fixed;
+    top: 20px;
+    right: 10px;
+    width: 30px;
+    height: 30px;
+    background-color: rgba(0, 0, 0, 0.5);
+    border: 2px solid rgba(255, 255, 255, 0.8);
+    border-radius: 8px;
+    cursor: pointer;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: white;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(5px);
+  }
+
+  .fullscreen-btn:hover {
+    background-color: rgba(0, 0, 0, 0.7);
+    transform: scale(1);
+  }
+
+  .fullscreen-btn:active {
+    transform: scale(0.95);
+  }
+
+  /* Hide button when in fullscreen */
+  .fullscreen-btn.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .zoom-controls {
+    position: fixed;
+    top: 60px;
+    right: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    z-index: 100;
+  }
+
+  .zoom-btn {
+    width: 30px;
+    height: 30px;
+    background-color: rgba(0, 0, 0, 0.5);
+    border: 2px solid rgba(255, 255, 255, 0.8);
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    color: white;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(5px);
+  }
+
+  .zoom-btn:hover {
+    background-color: rgba(0, 0, 0, 0.7);
+    transform: scale(1.1);
+  }
+
+  .zoom-btn:active {
+    transform: scale(0.95);
+  }
+
+  .zoom-btn.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* Smaller zoom buttons on mobile */
+  @media (max-width: 768px) {
+    .zoom-controls {
+      top: 70px;
+      right: 10px;
+      gap: 8px;
+    }
+
+    .zoom-btn {
+      width: 40px;
+      height: 40px;
+      font-size: 20px;
+    }
+  }
+
+  /* Zoom container for slides */
+  .slide-zoom-container {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    transition: transform 0.3s ease;
+  }
+
+  /* --- FULLSCREEN & ZOOM CONTROLS END --- */
 </style>
 </head>
 <body>
@@ -110,9 +227,9 @@
     <!-- MENU HOTSPOTS ON SECOND SLIDE -->
     <div class="menu-areas">
       <div class="hotspot" data-target="2" style="top: 30%; left: 25%; width: 20%; height: 10%;"></div>
-      <div class="hotspot" data-target="6" style="top: 30%; left: 51%; width: 25%; height: 12%;"></div>
+      <div class="hotspot" data-target="5" style="top: 30%; left: 51%; width: 25%; height: 12%;"></div>
       <div class="hotspot" data-target="3" style="top: 46%; left: 25%; width: 24%; height: 12%;"></div>
-      <div class="hotspot" data-target="5" style="top: 50%; left: 51%; width: 25%; height: 12%;"></div>
+      <div class="hotspot" data-target="6" style="top: 50%; left: 51%; width: 25%; height: 12%;"></div>
       <div class="hotspot" data-target="4" style="top: 66%; left: 27%; width: 20%; height: 12%;"></div>
       <div class="hotspot" data-target="7" style="top: 70%; left: 51%; width: 20%; height: 12%;"></div>
     </div>
@@ -132,16 +249,299 @@
   <div class="back-to-main hidden"></div>
 </div>
 
+<!-- FULLSCREEN & ZOOM CONTROLS START -->
+<!-- FULLSCREEN BUTTON -->
+<button class="fullscreen-btn" id="fullscreenBtn" title="Enter Fullscreen">
+  ⛶
+</button>
+
+<!-- ZOOM CONTROLS -->
+<div class="zoom-controls" id="zoomControls">
+  <button class="zoom-btn" id="zoomInBtn" title="Zoom In">+</button>
+  <button class="zoom-btn" id="zoomOutBtn" title="Zoom Out">−</button>
+</div>
+
+<!-- FULLSCREEN & ZOOM CONTROLS END -->
+
 <script>
   const slides = document.querySelectorAll('.slide');
   const nextBtn = document.querySelector('.arrow.right');
   const prevBtn = document.querySelector('.arrow.left');
   const backToMain = document.querySelector('.back-to-main');
   const hotspots = document.querySelectorAll('.hotspot');
-  const slider = document.getElementById('slider');
+  const slider = document.getElementById('slider');  
+
+  /* --- FULLSCREEN & ZOOM CONTROLS START --- */
+  
+  const fullscreenBtn = document.getElementById("fullscreenBtn");  
+  const zoomInBtn = document.getElementById("zoomInBtn");
+  const zoomOutBtn = document.getElementById("zoomOutBtn");
+  const zoomControls = document.getElementById("zoomControls");
   let current = 0;
   let resetTimer = null;
   let startX = 0;
+  let fullscreenRequested = false;
+  let zoomLevel = 1;
+  const MIN_ZOOM = 1;
+  const MAX_ZOOM = 3;
+  const ZOOM_STEP = 0.25;
+
+  // --- Fullscreen functionality ---
+  function isFullscreen() {
+    return (
+      document.fullscreenElement ||
+      document.webkitFullscreenElement ||
+      document.mozFullScreenElement ||
+      document.msFullscreenElement
+    );
+  }
+
+  function requestFullscreen() {
+    const elem = document.documentElement;
+
+    if (elem.requestFullscreen) {
+      elem
+        .requestFullscreen()
+        .catch((err) => console.log("Fullscreen error:", err));
+    } else if (elem.webkitRequestFullscreen) {
+      elem.webkitRequestFullscreen();
+    } else if (elem.msRequestFullscreen) {
+      elem.msRequestFullscreen();
+    } else if (elem.mozRequestFullScreen) {
+      elem.mozRequestFullScreen();
+    }
+  }
+
+  function exitFullscreen() {
+    if (document.exitFullscreen) {
+      document.exitFullscreen();
+    } else if (document.webkitExitFullscreen) {
+      document.webkitExitFullscreen();
+    } else if (document.msExitFullscreen) {
+      document.msExitFullscreen();
+    } else if (document.mozCancelFullScreen) {
+      document.mozCancelFullScreen();
+    }
+  }
+
+  function toggleFullscreen() {
+    if (isFullscreen()) {
+      exitFullscreen();
+    } else {
+      requestFullscreen();
+    }
+  }
+
+  function updateFullscreenButton() {
+    if (isFullscreen()) {
+      fullscreenBtn.innerHTML = "⛶";
+      fullscreenBtn.title = "Exit Fullscreen";
+      fullscreenBtn.classList.add("hidden");
+    } else {
+      fullscreenBtn.innerHTML = "⛶";
+      fullscreenBtn.title = "Enter Fullscreen";
+      fullscreenBtn.classList.remove("hidden");
+    }
+  }
+
+  // Fullscreen button click handler
+  fullscreenBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleFullscreen();
+  });
+
+  // Listen for fullscreen changes
+  document.addEventListener("fullscreenchange", updateFullscreenButton);
+  document.addEventListener(
+    "webkitfullscreenchange",
+    updateFullscreenButton
+  );
+  document.addEventListener("mozfullscreenchange", updateFullscreenButton);
+  document.addEventListener("MSFullscreenChange", updateFullscreenButton);
+
+  // Try to enter fullscreen on page load
+  window.addEventListener("load", () => {
+    // Small delay to ensure page is ready
+    setTimeout(() => {
+      requestFullscreen();
+      fullscreenRequested = true;
+    }, 100);
+  });
+
+  // Fallback: Request fullscreen on first user interaction
+  // (Some browsers block auto-fullscreen, but allow it after user interaction)
+  function requestFullscreenOnInteraction() {
+    if (!fullscreenRequested) {
+      requestFullscreen();
+      fullscreenRequested = true;
+    }
+  }
+
+  // Try fullscreen on first click/touch (but not on the fullscreen button itself)
+  document.addEventListener(
+    "click",
+    (e) => {
+      if (e.target !== fullscreenBtn) {
+        requestFullscreenOnInteraction();
+      }
+    },
+    { once: true }
+  );
+  document.addEventListener("touchend", requestFullscreenOnInteraction, {
+    once: true,
+  });
+
+  // Initialize button state
+  updateFullscreenButton();
+
+  // --- Zoom functionality ---
+  function restoreNavigationButtons() {
+    // Restore navigation buttons based on current slide without resetting zoom
+    if (current === 0) {
+      nextBtn.classList.add("hidden");
+      prevBtn.classList.add("hidden");
+      backToMain.classList.add("hidden");
+    } else if (current === 1) {
+      nextBtn.classList.remove("hidden");
+      prevBtn.classList.remove("hidden");
+      backToMain.classList.add("hidden");
+    } else if (current === slides.length - 1) {
+      nextBtn.classList.add("hidden");
+      prevBtn.classList.add("hidden");
+      backToMain.classList.add("hidden");
+    } else {
+      backToMain.classList.remove("hidden");
+      nextBtn.classList.remove("hidden");
+      prevBtn.classList.remove("hidden");
+    }
+  }
+
+  function applyZoom() {
+    const activeSlide = slides[current];
+    if (activeSlide) {
+      if (zoomLevel > MIN_ZOOM) {
+        // When zoomed, set actual dimensions to create proper scrollable area
+        const containerWidth = slider.offsetWidth || window.innerWidth;
+        const containerHeight = slider.offsetHeight || window.innerHeight;
+        const scaledWidth = containerWidth * zoomLevel;
+        const scaledHeight = containerHeight * zoomLevel;
+
+        // Set explicit dimensions
+        activeSlide.style.width = `${scaledWidth}px`;
+        activeSlide.style.height = `${scaledHeight}px`;
+        activeSlide.style.minWidth = `${scaledWidth}px`;
+        activeSlide.style.minHeight = `${scaledHeight}px`;
+        // Position to ensure scroll area covers full size
+        // Use top/left positioning to start from origin
+        activeSlide.style.top = "0";
+        activeSlide.style.left = "0";
+        activeSlide.style.transform = "";
+        activeSlide.style.right = "auto";
+        activeSlide.style.bottom = "auto";
+        // Ensure the element extends properly for scroll calculation
+        // By explicitly preventing any constraints
+        activeSlide.style.boxSizing = "border-box";
+        slider.classList.add("zoomed");
+
+        // Force recalculation of scroll dimensions
+        // Temporarily trigger a reflow to ensure scroll dimensions are updated
+        void slider.offsetHeight; // Force reflow
+        requestAnimationFrame(() => {
+          // Set scroll to center position
+          const maxScrollLeft = Math.max(0, scaledWidth - containerWidth);
+          const maxScrollTop = Math.max(0, scaledHeight - containerHeight);
+          const scrollLeft = maxScrollLeft / 2;
+          const scrollTop = maxScrollTop / 2;
+          slider.scrollLeft = scrollLeft;
+          slider.scrollTop = scrollTop;
+        });
+
+        // Hide navigation buttons when zoomed in
+        nextBtn.classList.add("hidden");
+        prevBtn.classList.add("hidden");
+        backToMain.classList.add("hidden");
+      } else {
+        // Reset to original dimensions and position
+        activeSlide.style.width = "100%";
+        activeSlide.style.height = "100%";
+        activeSlide.style.minWidth = "";
+        activeSlide.style.minHeight = "";
+        activeSlide.style.transform = "";
+        activeSlide.style.top = "";
+        activeSlide.style.left = "";
+        activeSlide.style.right = "";
+        activeSlide.style.bottom = "";
+        slider.scrollLeft = 0;
+        slider.scrollTop = 0;
+        slider.classList.remove("zoomed");
+        // Show navigation buttons based on current slide (restore normal state)
+        restoreNavigationButtons();
+      }
+      updateZoomButtons();
+    }
+  }
+
+  function zoomIn() {
+    if (zoomLevel < MAX_ZOOM) {
+      zoomLevel = Math.min(zoomLevel + ZOOM_STEP, MAX_ZOOM);
+      applyZoom();
+    }
+  }
+
+  function zoomOut() {
+    if (zoomLevel > MIN_ZOOM) {
+      zoomLevel = Math.max(zoomLevel - ZOOM_STEP, MIN_ZOOM);
+      applyZoom();
+    }
+  }
+
+  function resetZoom() {
+    zoomLevel = MIN_ZOOM;
+    applyZoom();
+  }
+
+  function updateZoomButtons() {
+    zoomInBtn.disabled = zoomLevel >= MAX_ZOOM;
+    zoomOutBtn.disabled = zoomLevel <= MIN_ZOOM;
+
+    if (zoomLevel >= MAX_ZOOM) {
+      zoomInBtn.style.opacity = "0.5";
+      zoomInBtn.style.cursor = "not-allowed";
+    } else {
+      zoomInBtn.style.opacity = "1";
+      zoomInBtn.style.cursor = "pointer";
+    }
+
+    if (zoomLevel <= MIN_ZOOM) {
+      zoomOutBtn.style.opacity = "0.5";
+      zoomOutBtn.style.cursor = "not-allowed";
+    } else {
+      zoomOutBtn.style.opacity = "1";
+      zoomOutBtn.style.cursor = "pointer";
+    }
+  }
+
+  // Zoom button event listeners
+  zoomInBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    zoomIn();
+  });
+
+  zoomOutBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    zoomOut();
+  });
+
+  // Hide zoom controls on first slide
+  function updateZoomControlsVisibility() {
+    if (current === 0) {
+      zoomControls.classList.add("hidden");
+    } else {
+      zoomControls.classList.remove("hidden");
+    }
+  }
+
+  /* --- FULLSCREEN & ZOOM CONTROLS END --- */
 
   function showSlide(index) {
     clearTimeout(resetTimer);
@@ -231,5 +631,3 @@
 
 </body>
 </html>
-
-
