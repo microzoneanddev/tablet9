@@ -221,7 +221,7 @@
 
 <div class="slider-container" id="slider">
   <!-- SLIDES -->
-  <div class="slide active" style="background-image: url('Frame 1.png');"></div>
+  <div class="slide active" style="background-image: url('Frame 1.png'); cursor: pointer;"></div>
 
   <div class="slide" style="background-image: url('Frame 2.png');">
     <!-- MENU HOTSPOTS ON SECOND SLIDE -->
@@ -583,8 +583,16 @@
   });
 
   prevBtn.addEventListener('click', () => {
+    currentSlide = current;
     current = (current - 1 + slides.length) % slides.length;
     showSlide(current);
+
+    setTimeout(() => {
+      if( currentSlide == 1 ) {
+        showSlide(0);
+        current = 0;
+      }
+    }, 100);
   });
 
   backToMain.addEventListener('click', () => {
@@ -627,9 +635,33 @@
       }
     }
   });
+
+  // --- AUTO RESET ON USER INACTIVITY ---
+  let inactivityTimer;
+
+  // Function to reset slider to first screen
+  function resetToFirstSlide() {
+    current = 0;
+    showSlide(current);
+  }
+
+  // Function to start or restart inactivity timer
+  function restartInactivityTimer() {
+    clearTimeout(inactivityTimer);
+    inactivityTimer = setTimeout(resetToFirstSlide, 30000); // 30 seconds
+  }
+
+  // List of user activity events
+  const activityEvents = ['mousemove', 'mousedown', 'keypress', 'touchstart', 'click'];
+
+  // Add listeners to detect activity
+  activityEvents.forEach(event => {
+    document.addEventListener(event, restartInactivityTimer, { passive: true });
+  });
+
+  // Start the timer initially
+  restartInactivityTimer();
 </script>
 
 </body>
 </html>
-
-
